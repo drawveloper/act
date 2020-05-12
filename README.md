@@ -1,12 +1,97 @@
 # act - WORK IN PROGRESS
 
-*automatic configuration tree*
-*autonomous configuration toolset*
-*accelerated configuration transforms*
+*automatic configuration tree*  
+*autonomous configuration toolset*  
+*accelerated configuration transforms*  
+*apps configuration tools*  
 
 `act` is a "full-lifecycle" framework for distributed configuration management.
 
-`act`-compatible services declare four major hooks: builders (generate a versioned *build* from an *app source*), assemblers (generate a versioned *state* from a list of *builds*), runners (generate a response from a *request* and a given *state*) and *probers* (generate *status* from a list of *success metrics*).
+`act` proposes a mechanism to version and deploy inter-dependent configuration packages (*apps*) for distributed services. It does that by defining how these *apps* and *services* may relate to each other (e.g. *extend, configure, depend*) and providing tools to deploy, run and A/B test these services over time.
+
+`act`-compatible services declare four major hooks: builders (generate a versioned *build* from an *app source*), assemblers (generate a versioned *state* from a list of *builds*), runners (generate a response from a *request* and a given *state*) and *probers* (generate *status* from a list of *metrics*). Finally, they declare a *scorecard* which is the "declaration of a desired future as measured by *probers*". This allows them to create new *experiments*, consisting of proposed changes to configuration that would produce different outcomes (in terms of metrics).
+
+## act apps and services
+
+Apps are the building blocks of `act` - to the top-level user, they act as enablers of certain features, but they are actually more versatile. Formally, they are versioned packages of configuration for services. When a list of apps is compiled together, a given state is produced, which will be used by a service to alter it's behaviour.
+
+Services are running instances of *configurable* cloud software. They might be expressed in different languages and executed in multiple runtimes, but ultimately they reply to internet traffic and serve practical purposes. Services own their data and are independent - they provide a working functionality which is useful by itself, and that may change according to provided configuration.
+
+## Services are configured by apps
+
+Services express they are configurable by defining "builders" (a `service/builder` combination might be referred to simply as `builder`, imprecisely). These builders are functions which receive as arguments any content in this builder's "folder" in the app source and returns either a successful build and any output files, or an error. These files are appended to the app package before it is published to the registry.
+
+(As a technical detail, for each builder in an app, a separate npm package is published, and all of them are added as dependencies for the "meta" npm package. Later, this allows the assembler for each service to download only configuration relevant to itself.)
+
+Apps are versioned git repositories with a specific structure:
+
+- There is an app.json definition file.
+- Every folder represents a `service` this exports some configuration to.
+- Every subsequent nested folder represents a `builder` in this service.
+- Any nested folder and files are offered as arguments to this `builder` during publish.
+
+## app.json required fields
+
+```json
+{
+  "publisher": "act",
+  "name": "calculator",
+  "version": "4.2.0",
+  "description": "",
+  
+  "bugs": "URL",
+  "repository": {},
+  "contributors": [],
+
+  "extends": "",
+  "configures": {},
+  "depends": {},
+}
+```
+
+## Calculator node service example
+
+For example, if app `act.calculator@4` wants to configure the `router` service `http` builder, ...
+
+## act native services
+
+There are three basic services which offer the baseline for the creation of custom services:
+
+### Builder
+
+Receives app source as parameter. Outputs are appended to published package.
+
+### Assembler
+
+Receives list of built packages as parameter. Outputs service state.
+
+### Runner
+
+A runner is a docker image with a server which receives requests with a service state hash.
+
+## Three relationships - extend, configure, depend
+
+### Apps extend Apps
+
+Extend allows to inherit exported configurations and override them selectively (IS A applies). e.g. gtm extends pixel (which configures render).
+
+### Apps configure Services
+
+Packaged configuration is used to generate service state and ultimately impact service behaviour.
+
+### Services depend on Services
+
+Static services calculate responses from request params and service state solely, but dynamic services might require I/O to other running services. This constitutes a runtime dependency.
+
+## Implementation detail
+
+The `configures` set will be expanded to `configures/package.json` and `yarn2` is used to download and run builders for all top level folders.
+
+The `depends` set will be expanded to `depends/package.json` and `yarn2` is used to download any clients during deploy of pod, also to setup envoy proxy permission for runtime requests.
+
+In general, native abstractions are preferred, so inside builders such as `render` and `node` you may use `package.json` normally to depend on code from other apps, etc, as supported by each builder.
+
+## Router example
 
 `act-router` implements a the `router` service, which routes requests based on state generated by it's `http` builder. This allows other services to request routes by exporting configuration for this builder.
 
@@ -14,23 +99,7 @@ By doing so, every service that wants to claim a new route must go through the p
 
 These configuration changes then go through e2e testing in a production-like environment and are then gradually distributed to live `router` instances. If any of the service-defined success metrics are disturbed according to ML-enabled projection, we automatically reverse to previous state and alert configuration publishers, resuming previous behaviour without human interaction.
 
-Finally, services declare a *scorecard* which is the "declaration of a desired future as measured by *probers*". This allows them to create new *experiments*, consisting of proposed changes to configuration that will produce different outcomes as measured by probers.
-
 This allows to maximize iteration speed on configuration tests without compromising on user experience. Move fast without breaking things, as a service.
-
-## Introduction
-
-### Some basic terms
-
-#### Services
-
-`act` is all about **services** - and how you can dynamically change their behaviours in a complex, distributed system in a secure manner while measuring results.
-
-## Builders
-
-`act` proposes a mechanism to version and deploy inter-dependent configuration for distributed services. It does that by defining how packages of configuration (*apps*) may relate to each other (e.g. *extend, depend, configure*) and providing tools to compile valid configuration for services and allow simple A/B testing of configuration.
-
-## Example usage
 
 ## Motivation
 
