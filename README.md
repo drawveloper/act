@@ -73,6 +73,16 @@ Apps are versioned git repositories with a specific structure:
 
 ## app.ts example file
 
+```ts
+import { App } from 'https://act.pm/std/1/app.ts'
+
+export default new App({
+  ...
+})
+```
+
+Generated config:
+
 ```json
 {
   "publisher": "act",
